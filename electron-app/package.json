@@ -1,0 +1,61 @@
+{
+  "name": "electron-app",
+  "version": "1.0.0",
+  "description": "Solarium Browser Application",
+  "author": "Solarium Team",
+  "main": "dist-electron-new/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build && electron-builder",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "license": "ISC",
+  "type": "commonjs",
+  "build": {
+    "appId": "com.solarium.app",
+    "productName": "Solarium",
+    "directories": {
+      "output": "release_v3"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "asar": false,
+    "files": [
+      "dist-new/**/*",
+      "dist-electron-new/**/*",
+      "package.json"
+    ]
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.4",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.563.0",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
+    "remixicon": "^4.9.1",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.2",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.3",
+    "autoprefixer": "^10.4.24",
+    "electron": "^40.2.1",
+    "electron-builder": "^26.7.0",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.19",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.1",
+    "vite-plugin-electron": "^0.29.0",
+    "vite-plugin-electron-renderer": "^0.14.6"
+  }
+}
