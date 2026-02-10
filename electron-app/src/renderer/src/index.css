@@ -25,7 +25,7 @@
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
+    --radius: 0rem;
   }
 
   .dark {
@@ -59,4 +59,26 @@
     @apply bg-background text-foreground;
     font-family: 'Inter', sans-serif;
   }
+}
+
+/* Custom Scrollbar Theme */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-zinc-800 border-2 border-zinc-950 rounded-none;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-zinc-700;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
