@@ -263,17 +263,32 @@ export function Settings({ initialSection = 'appearance', onBack, onOpenTab, def
     })
 
     return (
-        <div className="flex h-full w-full bg-zinc-950 text-zinc-100 font-sans animate-in fade-in duration-200">
-            {/* Settings Sidebar */}
-            <div className="w-64 border-r border-zinc-800 flex flex-col pt-2">
-                <div className="px-3 pb-4 pt-2 flex items-center gap-1">
-                    <Button variant="ghost" size="icon" onClick={handleBack} className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 w-8">
-                        <i className="ri-arrow-left-line text-lg"></i>
-                    </Button>
-                    <h1 className="text-xl font-medium">Settings</h1>
+        <div className="flex flex-col h-full w-full bg-zinc-950 text-zinc-100 font-sans animate-in fade-in duration-200">
+            {/* Window Drag Handle Bar */}
+            <div className="h-10 w-full bg-zinc-950 border-b border-zinc-800 flex items-center px-4 drag-handle shrink-0 justify-between">
+                <div className="flex items-center gap-2">
+                    <span className="w-3 h-3 bg-zinc-800 rounded-none"></span>
+                    <span className="text-xs font-medium text-zinc-500 tracking-wider uppercase">Settings</span>
                 </div>
+                {/* Optional: Add window controls here if needed, or rely on OS if frame is true (it is false) */}
+                <div className="flex gap-2 no-drag">
+                     <button onClick={() => window.close()} className="text-zinc-600 hover:text-zinc-300 transition-colors">
+                        <i className="ri-close-line text-lg"></i>
+                     </button>
+                </div>
+            </div>
 
-                <div className="flex-1 overflow-y-auto py-2">
+            <div className="flex-1 flex overflow-hidden">
+                {/* Settings Sidebar */}
+                <div className="w-64 border-r border-zinc-800 flex flex-col pt-2">
+                    <div className="px-4 pb-4 pt-2 flex items-center gap-2">
+                        <Button variant="ghost" size="icon" onClick={handleBack} className="text-zinc-400 hover:text-white hover:bg-zinc-800 h-8 w-8 rounded-none">
+                            <i className="ri-arrow-left-line text-lg"></i>
+                        </Button>
+                        <h1 className="text-xl font-medium">Settings</h1>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto py-2">
                     {sections.map((section, index) => {
                         if (section.type === 'divider') {
                             return <div key={index} className="h-px bg-zinc-800 my-2 mx-0" />
@@ -930,7 +945,7 @@ export function Settings({ initialSection = 'appearance', onBack, onOpenTab, def
                                 ) : (
                                     <div className="grid grid-cols-1 gap-2">
                                         {extensions.filter((ext: any) => ext.name.toLowerCase().includes(searchQuery.toLowerCase())).map((ext: any) => (
-                                            <div key={ext.id} className="bg-zinc-950 border border-zinc-800 p-4 hover:border-zinc-700 transition-colors group flex flex-col gap-4">
+                                            <div key={ext.id} className="bg-zinc-950 border border-zinc-800 p-4 hover:border-zinc-700 transition-colors group flex flex-col">
                                                 <div className="flex items-center justify-between w-full">
                                                     {/* Left: Icon + Name + Description */}
                                                     <div className="flex items-center gap-4 min-w-0 flex-1 mr-4">
@@ -980,7 +995,7 @@ export function Settings({ initialSection = 'appearance', onBack, onOpenTab, def
 
                                                 {/* Dev mode details */}
                                                 {devMode && (
-                                                    <div className="pt-3 border-t border-zinc-900 flex items-center justify-between text-xs text-zinc-500">
+                                                    <div className="pt-3 mt-3 border-t border-zinc-900 flex items-center justify-between text-xs text-zinc-500">
                                                         <span className="font-mono text-[11px] text-zinc-600">ID: {ext.id}</span>
                                                         <button
                                                             onClick={() => {
@@ -1008,6 +1023,7 @@ export function Settings({ initialSection = 'appearance', onBack, onOpenTab, def
                         </div>
                     )}
                 </div>
+            </div>
             </div>
             </div>
         </div>

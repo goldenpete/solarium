@@ -180,116 +180,70 @@ app.whenReady().then(async () => {
   })
 
   // Web Request Blocking & Headers
-  session.defaultSession.webRequest.onBeforeRequest({ urls: ["<all_urls>"] }, (details, callback) => {
-    try {
-      // Don't block main frame navigations (allows user to visit sites even if they match patterns)
-      if (details.resourceType === 'mainFrame') {
-        callback({ cancel: false })
-        return
-      }
+  // session.defaultSession.webRequest.onBeforeRequest({ urls: ["<all_urls>"] }, (details, callback) => {
+  //   try {
+  //     // Don't block main frame navigations (allows user to visit sites even if they match patterns)
+  //     if (details.resourceType === 'mainFrame') {
+  //       callback({ cancel: false })
+  //       return
+  //     }
 
-      const url = new URL(details.url)
-      const hostname = url.hostname
+  //     const url = new URL(details.url)
+  //     const hostname = url.hostname
 
-      // 1. Check Site Status (Manual Block)
-      // Check if any blocked site is part of the hostname
-      // e.g. "google.com" blocks "www.google.com" and "google.com"
-      const blocked = Object.entries(siteStatuses).find(([site, status]) =>
-        status === 'block' && (hostname === site || hostname.endsWith('.' + site))
-      )
+  //     // 1. Check Site Status (Manual Block)
+  //     // Check if any blocked site is part of the hostname
+  //     // e.g. "google.com" blocks "www.google.com" and "google.com"
+  //     const blocked = Object.entries(siteStatuses).find(([site, status]) =>
+  //       status === 'block' && (hostname === site || hostname.endsWith('.' + site))
+  //     )
 
-      if (blocked) {
-        console.log(`Blocking request to ${details.url} because ${blocked[0]} is blocked`)
-        callback({ cancel: true })
-        return
-      }
+  //     if (blocked) {
+  //       console.log(`Blocking request to ${details.url} because ${blocked[0]} is blocked`)
+  //       callback({ cancel: true })
+  //       return
+  //     }
 
-      // 2. Tracking Protection
-      if (trackingProtectionEnabled) {
-        // Simple pattern matching for now
-        // In a real browser, we would use a trie or a more efficient matcher like adblock-rust
-        const isTracker = TRACKER_PATTERNS.some(pattern => {
-          // Very basic glob matching
-          const cleanPattern = pattern.replace(new RegExp('\\*', 'g'), '.*')
-          const regex = new RegExp('^' + cleanPattern + '$')
-          return regex.test(details.url)
-        })
+  //     // 2. Tracking Protection
+  //     if (trackingProtectionEnabled) {
+  //       // Simple pattern matching for now
+  //       // In a real browser, we would use a trie or a more efficient matcher like adblock-rust
+  //       const isTracker = TRACKER_PATTERNS.some(pattern => {
+  //         // Very basic glob matching
+  //         const cleanPattern = pattern.replace(new RegExp('\\*', 'g'), '.*')
+  //         const regex = new RegExp('^' + cleanPattern + '$')
+  //         return regex.test(details.url)
+  //       })
 
-        if (isTracker) {
-          blockedTrackersCount++
-          console.log(`Blocked tracker: ${details.url}`)
-          // Notify all windows (renderer) about the block
-          BrowserWindow.getAllWindows().forEach(win => {
-            win.webContents.send('tracker-blocked', details.url)
-          })
-          callback({ cancel: true })
-          return
-        }
-      }
+  //       if (isTracker) {
+  //         blockedTrackersCount++
+  //         console.log(`Blocked tracker: ${details.url}`)
+  //         // Notify all windows (renderer) about the block
+  //         BrowserWindow.getAllWindows().forEach(win => {
+  //           win.webContents.send('tracker-blocked', details.url)
+  //         })
+  //         callback({ cancel: true })
+  //         return
+  //       }
+  //     }
 
-    } catch (e) {
-      // Invalid URL, ignore
-    }
-    callback({ cancel: false })
-  })
+  //   } catch (e) {
+  //     // Invalid URL, ignore
+  //   }
+  //   callback({ cancel: false })
+  // })
 
   // Permission handling is now in ExtensionManager
 
-  // Spoof Client Hints & Handle "Limit" status (Strip Cookies)
-  session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
-    let requestHeaders = details.requestHeaders
+  // Spoof Client Hints & Handle "Limit" status (Strip Cookies) - REMOVED to allow Extensions to handle this
+  // session.defaultSession.webRequest.onBeforeSendHeaders((details, callback) => {
+  //   callback({ cancel: false, requestHeaders: details.requestHeaders })
+  // })
 
-    // 1. Spoof User Agent
-    requestHeaders['User-Agent'] = userAgent
-    requestHeaders['sec-ch-ua'] = '"Chromium";v="132", "Not(A:Brand";v="99", "Google Chrome";v="132"'
-    requestHeaders['sec-ch-ua-mobile'] = '?0'
-    requestHeaders['sec-ch-ua-platform'] = '"Windows"'
-
-    // 2. Handle "Limit" status - Prevent sending cookies
-    try {
-      const url = new URL(details.url)
-      const hostname = url.hostname
-      const limited = Object.entries(siteStatuses).find(([site, status]) =>
-        status === 'limit' && (hostname === site || hostname.endsWith('.' + site))
-      )
-
-      if (limited) {
-        console.log(`Stripping Cookie header for ${details.url} because ${limited[0]} is limited`)
-        delete requestHeaders['Cookie']
-      }
-    } catch (e) {
-      // Ignore
-    }
-
-    callback({ cancel: false, requestHeaders: requestHeaders })
-  })
-
-  // Handle "Limit" status - Prevent saving cookies (Set-Cookie)
-  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
-    let responseHeaders = details.responseHeaders
-
-    try {
-      const url = new URL(details.url)
-      const hostname = url.hostname
-      const limited = Object.entries(siteStatuses).find(([site, status]) =>
-        status === 'limit' && (hostname === site || hostname.endsWith('.' + site))
-      )
-
-      if (limited && responseHeaders) {
-        console.log(`Stripping Set-Cookie header for ${details.url} because ${limited[0]} is limited`)
-        // Remove Set-Cookie header case-insensitively
-        Object.keys(responseHeaders).forEach(key => {
-          if (key.toLowerCase() === 'set-cookie') {
-            delete responseHeaders![key]
-          }
-        })
-      }
-    } catch (e) {
-      // Ignore
-    }
-
-    callback({ cancel: false, responseHeaders: responseHeaders })
-  })
+  // Handle "Limit" status - Prevent saving cookies (Set-Cookie) - REMOVED to allow Extensions to handle this
+  // session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+  //   callback({ cancel: false, responseHeaders: details.responseHeaders })
+  // })
 
   // Handle Downloads (CRX downloads are handled by ExtensionManager)
   session.defaultSession.on('will-download', (_event, item, _webContents) => {

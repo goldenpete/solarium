@@ -529,6 +529,10 @@ export class ExtensionManager {
         const polyfill = `
         (function() {
             try {
+                // Expose ipcRenderer for resize functionality
+                const { ipcRenderer } = require('electron');
+                window.ipcRenderer = ipcRenderer;
+                
                 if (!window.chrome) window.chrome = {};
 
                 // ── chrome.tabs ──
@@ -730,15 +734,21 @@ export class ExtensionManager {
             this.popupWindow.close()
         }
 
+        // Extract extension ID from URL
+        // chrome-extension://<id>/popup.html
+        const match = popupPage.match(/chrome-extension:\/\/([^/]+)/)
+        const extId = match ? match[1] : ''
+
         // Generate preload script with current tab state
-        this.createPreloadScript(activeTab)
+        this.createPreloadScript(activeTab, extId)
 
         this.popupWindow = new BrowserWindow({
-            width: 400,
-            height: 550,
+            width: 300,
+            height: 300,
             frame: false,
             resizable: true,
             show: false,
+            useContentSize: true, // Respect content size
             webPreferences: {
                 nodeIntegration: false,
                 contextIsolation: false, // Must be false for chrome.* injection to work on window
@@ -751,6 +761,79 @@ export class ExtensionManager {
         })
 
         const win = this.popupWindow
+
+        // Inject CSS to hide scrollbars immediately
+        win.webContents.on('dom-ready', () => {
+            win.webContents.insertCSS(`
+                html { overflow: hidden !important; }
+                body { overflow: hidden !important; }
+                * { overflow: hidden !important; scrollbar-width: none !important; }
+                ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+                ::-webkit-scrollbar-track { display: none !important; }
+                ::-webkit-scrollbar-thumb { display: none !important; }
+                ::-webkit-scrollbar-button { display: none !important; }
+            `).catch(() => { });
+        });
+
+        // Resize observer script - improved version with scrollbar hiding
+        const resizeScript = `
+             (function() {
+                 // Hide scrollbars
+                 const style = document.createElement('style');
+                 style.textContent = 'html, body { overflow: hidden !important; } ::-webkit-scrollbar { display: none !important; }';
+                 document.head.appendChild(style);
+                 
+                 let resizeTimeout;
+                 const observer = new MutationObserver(() => {
+                     clearTimeout(resizeTimeout);
+                     resizeTimeout = setTimeout(updateSize, 50);
+                 });
+                 
+                 observer.observe(document.body, { attributes: true, childList: true, subtree: true });
+                 
+                 function updateSize() {
+                     try {
+                         const body = document.body;
+                         const html = document.documentElement;
+                         if (!body || !html) return;
+                         
+                         // Measure content
+                         // If explicit size is set on body, use it
+                         const bodyStyle = window.getComputedStyle(body);
+                         let width = parseInt(bodyStyle.width);
+                         let height = parseInt(bodyStyle.height);
+                         
+                         // If not explicit or auto, use scroll dimensions
+                         if (!width || isNaN(width) || bodyStyle.width === 'auto' || bodyStyle.width.includes('%')) {
+                             width = html.scrollWidth;
+                         }
+                         
+                         if (!height || isNaN(height) || bodyStyle.height === 'auto' || bodyStyle.height.includes('%')) {
+                             height = html.scrollHeight;
+                         }
+                         
+                         // Send to main
+                         if (width > 0 && height > 0) {
+                             if (window.ipcRenderer) {
+                                 window.ipcRenderer.send('extension:popup-resize', { width, height });
+                             }
+                         }
+                     } catch(e) {}
+                 }
+                 
+                 // Initial
+                 if (document.readyState === 'loading') {
+                     document.addEventListener('DOMContentLoaded', updateSize);
+                 } else {
+                     updateSize();
+                 }
+                 window.addEventListener('load', updateSize);
+             })();
+        `;
+
+        win.webContents.on('did-finish-load', () => {
+            win.webContents.executeJavaScript(resizeScript).catch(() => { });
+        });
 
         // Log popup console messages for debugging
         win.webContents.on('console-message', (_event, _level, message, line, sourceId) => {
@@ -771,22 +854,41 @@ export class ExtensionManager {
             console.error(`[ExtPopup] Failed to load: ${errorCode} ${errorDescription} URL: ${validatedURL}`)
         })
 
+        console.log(`[ExtensionPopup] Loading popup: ${popupPage}`);
         win.loadURL(popupPage).catch(e => {
             console.error('[ExtPopup] Failed to load popup URL:', e)
         })
 
         win.once('ready-to-show', () => {
-            // Position popup near cursor
-            const { screen } = require('electron')
-            const point = screen.getCursorScreenPoint()
-            const display = screen.getDisplayNearestPoint(point)
-            let x = point.x - 300
-            let y = point.y + 20
-            if (x < display.bounds.x) x = display.bounds.x
-            if (x + 400 > display.bounds.x + display.bounds.width) x = display.bounds.x + display.bounds.width - 400
-            if (y + 550 > display.bounds.y + display.bounds.height) y = point.y - 570
-            win.setPosition(x, y)
-            win.show()
+            console.log('[ExtensionPopup] Window ready to show');
+            try {
+                // Position popup near cursor
+                const { screen } = require('electron')
+                const point = screen.getCursorScreenPoint()
+                const display = screen.getDisplayNearestPoint(point)
+
+                // Default size before resize
+                const [width, height] = win.getSize()
+
+                let x = point.x - (width - 50) // align right edge approx
+                let y = point.y + 20
+
+                // Simple boundary checks
+                if (x < display.bounds.x) x = display.bounds.x
+                if (x + width > display.bounds.x + display.bounds.width) x = display.bounds.x + display.bounds.width - width
+                if (y + height > display.bounds.y + display.bounds.height) y = point.y - height - 10
+
+                win.setPosition(Math.round(x), Math.round(y))
+                win.show()
+                console.log('[ExtensionPopup] Window shown successfully');
+
+                // Fallback attempt to resize if still at default size after 1s?
+                // No, better to trust the resize script. 
+                // We leave this empty because the resize script handles it.
+            } catch (error) {
+                console.error('[ExtensionPopup] Error in ready-to-show:', error);
+                win.show(); // Show anyway as fallback
+            }
         })
 
         // Close popup when it loses focus
@@ -794,6 +896,10 @@ export class ExtensionManager {
             if (!win.isDestroyed()) {
                 win.close()
             }
+        })
+
+        win.on('closed', () => {
+            this.popupWindow = null
         })
 
         // Right-click inspect for debugging
@@ -893,6 +999,12 @@ export class ExtensionManager {
 
         ipcMain.handle('extension:remove', (_event, extensionId: string) => {
             try {
+                // Get extension path before removing
+                // @ts-ignore
+                const ext = session.defaultSession.extensions.getExtension(extensionId)
+                const extPath = ext ? ext.path : path.join(this.extensionsPath, extensionId)
+
+                // Remove from session (this updates Electron's Preferences)
                 // @ts-ignore
                 session.defaultSession.extensions.removeExtension(extensionId)
 
@@ -903,8 +1015,17 @@ export class ExtensionManager {
                     fs.unlinkSync(storagePath)
                 }
 
+                // Delete the actual extension files from disk
+                // Only delete if it is inside our managed extensions directory to be safe
+                if (extPath && extPath.startsWith(this.extensionsPath)) {
+                    if (fs.existsSync(extPath)) {
+                        fs.rmSync(extPath, { recursive: true, force: true })
+                    }
+                }
+
                 return { success: true }
             } catch (e) {
+                console.error('[ExtensionManager] Failed to remove extension:', e)
                 return { success: false, error: (e as Error).message }
             }
         })
@@ -946,6 +1067,21 @@ export class ExtensionManager {
 
         ipcMain.on('extension:tab-activated', (_event, { id }) => {
             this.setActiveTab(id)
+        })
+
+        // Popup resizing
+        ipcMain.on('extension:popup-resize', (_event, { width, height }) => {
+            if (this.popupWindow && !this.popupWindow.isDestroyed()) {
+                const [currentW, currentH] = this.popupWindow.getSize();
+
+                // Set exact size (ceil to avoid subpixel clipping)
+                const newW = Math.max(50, Math.min(Math.ceil(width), 800));
+                const newH = Math.max(50, Math.min(Math.ceil(height), 600));
+
+                if (Math.abs(newW - currentW) > 1 || Math.abs(newH - currentH) > 1) {
+                    this.popupWindow.setSize(newW, newH);
+                }
+            }
         })
 
         // Content script injection request from renderer

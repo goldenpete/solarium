@@ -715,16 +715,17 @@ function App() {
                             Manage
                           </button>
                         </div>
-                        <div className="flex flex-wrap gap-0">
-                          {extensionsList.slice(0, 5).map(ext => (
+                        <div className="grid grid-cols-6 gap-0 w-full">
+                          {extensionsList.map(ext => (
                             <div
                               key={ext.id}
                               className={cn(
-                                "w-8 h-8 rounded-none border-r border-b border-zinc-800 flex items-center justify-center text-zinc-400 transition-all",
+                                "aspect-square w-full h-auto rounded-none border-r border-b border-zinc-800 flex items-center justify-center text-zinc-400 transition-all",
                                 ext.popupPage ? "cursor-pointer hover:bg-zinc-800 hover:text-zinc-200" : "opacity-75 cursor-default"
                               )}
                               title={ext.name}
                               onClick={() => {
+                                console.log('Extension clicked:', ext.name, 'popupPage:', ext.popupPage);
                                 if (ext.popupPage) {
                                   // Pass active tab info to the popup for chrome.tabs API mocking
                                   ipcRenderer.invoke('extension:open-popup', {
@@ -734,7 +735,13 @@ function App() {
                                       url: activeTab.url,
                                       title: activeTab.title
                                     } : null
-                                  })
+                                  }).then(() => {
+                                    console.log('Extension popup opened successfully');
+                                  }).catch(err => {
+                                    console.error('Failed to open extension popup:', err);
+                                  });
+                                } else {
+                                  console.log('Extension has no popup page');
                                 }
                               }}
                             >
@@ -746,7 +753,7 @@ function App() {
                             </div>
                           ))}
                           {extensionsList.length === 0 && (
-                            <span className="text-[10px] text-zinc-600 p-2 block">No extensions installed</span>
+                            <div className="col-span-6 text-[10px] text-zinc-600 p-2 text-center">No extensions installed</div>
                           )}
                         </div>
                       </div>
